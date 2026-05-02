@@ -4,6 +4,7 @@ Construction des features et de la cible pour le LSTM.
 import pandas as pd
 import numpy as np
 import config #config.py
+import torch
 
 #construction cible
 
@@ -70,7 +71,6 @@ def calculer_score_cible(df_transferts, df_stats, medianes):
     index = construire_index_joueur(df_stats)
     
     scores = []
-    categories = []
     
     for _, t in df_transferts.iterrows():
         joueur = t["player"]
@@ -91,30 +91,22 @@ def calculer_score_cible(df_transferts, df_stats, medianes):
             if nouveau_club in stats_s2_par_team:
                 score_s2 = score_saison(stats_s2_par_team[nouveau_club], medianes)
                 scores.append(0.6 * score_s1 + 0.4 * score_s2)
-                categories.append("complet_2saisons")
             elif stats_s2_par_team:
                 # Joueur a changé de club entre S+1 et S+2
                 scores.append(0.85 * score_s1)
-                categories.append("parti_apres_1saison_big5")
             else:
                 scores.append(0.7 * score_s1)
-                categories.append("disparu_apres_1saison")
         
         elif stats_s1_par_team:
             # Pas dans le nouveau club, mais joue ailleurs en big 5
             scores_ailleurs = [score_saison(s, medianes) for s in stats_s1_par_team.values()]
             scores.append(0.4 * max(scores_ailleurs))
-            categories.append("parti_meme_saison_big5")
         
         else:
             # Disparu des big 5
             scores.append(0.10)
-            categories.append("disparu_des_big5")
     
-    return (
-        pd.Series(scores, index=df_transferts.index, name="score_cible"),
-        pd.Series(categories, index=df_transferts.index, name="categorie"),
-    )
+    return torch.tensor(scores, dtype=torch.float32)
 
 #construction features
 
@@ -283,6 +275,13 @@ def construire_toutes_sequences(df_t,index):
     
     return X_seq, masques
 
+def construire_contexte(df_t):
+    ctx = []
+    for _, r in df_t.iterrows():
+        sequence = [r["transfer_fee"],r["market_val"]] #ensuite, je pourrais rajouter classement actuel club arrivée et club départ (et la ligue) pour plus de contexte
+        ctx.append(sequence)
+    return torch.tensor(ctx, dtype=torch.float32)
+
 if __name__ == "__main__":
     import sys
     sys.path.insert(0, ".")
@@ -292,8 +291,13 @@ if __name__ == "__main__":
     df_t = charger_transferts()
 
     index = construire_index_joueur(df_s)
+    medianes = calculer_medianes_par_poste(df_s)
+
+    y = calculer_score_cible(df_t, df_s, medianes)
+    print(y)
+    print(y.shape)
     
-    X_seq, masques = construire_toutes_sequences(df_t,index)
+    '''X_seq, masques = construire_toutes_sequences(df_t,index)
     print("X_seq :",X_seq)
     print("masques :",masques)
     print(X_seq.shape)
@@ -323,7 +327,7 @@ if __name__ == "__main__":
     for pattern, count in sorted(patterns.items(), key=lambda x: -x[1]):
         print(f"  {pattern}: {count}")
 
-    '''medianes = calculer_medianes_par_poste(df_s)
+    medianes = calculer_medianes_par_poste(df_s)
     print(f"Médianes (G+A)/90 par poste : {medianes}")
     
     # Tester sur quelques joueurs
