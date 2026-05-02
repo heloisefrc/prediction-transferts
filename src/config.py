@@ -8,6 +8,7 @@ N_SAISONS_AVANT = 3                    # nombre de saisons d'historique en entr�
 
 # Stats numériques utilisées dans les séquences
 FEATURES_STATS = ["MP", "Min", "Starts", "Subs", "unSub" "Gls", "Ast", "G-PK","PK","PKatt"]
+FEATURES_C = ["Classement","Liga", "Premier League", "Ligue 1", "Bundesliga", "Serie A"]
 
 # Postes pour le one-hot
 POSTES = ["GK", "DF", "MF", "FW"]

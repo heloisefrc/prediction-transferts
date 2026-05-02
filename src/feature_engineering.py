@@ -136,7 +136,7 @@ def construire_index_joueur(df_s):
         team = r["team"]
         
         stats = {
-            "team": team,
+            "team": team, "Classement":r["Classement"], "Premier League":r["Premier League"], "Liga":r["Liga"], "Serie A":r["Serie A"], "Bundesliga":r["Bundesliga"], "Ligue 1":r["Ligue 1"],
             "MP": r["MP"], "Min": r["Min"], "Starts": r["Starts"],
             "Subs": r["Subs"],"unSubs": r["unSub"], "Gls": r["Gls"], "Ast": r["Ast"],
             "G-PK": r["G-PK"], "PK": r["PK"], "PKatt": r["PKatt"],
@@ -158,9 +158,10 @@ def construire_sequence_transfert(transfert, index):
         sequence : np.ndarray de forme (N_SAISONS_AVANT, n_features)
         masque : np.ndarray de forme (N_SAISONS_AVANT,) avec 0/1
     """
-    n_stats = len(config.FEATURES_STATS)
+    n_stats_joueur = len(config.FEATURES_STATS)
+    n_stats_club = len(config.FEATURES_C)
     n_postes = len(config.POSTES)
-    n_features = n_stats + n_postes + 2 # stats + postes + masque + age
+    n_features = n_stats_joueur + n_stats_club + n_postes + 2 # stats + postes + masque + age
     
     sequence = np.zeros((config.N_SAISONS_AVANT, n_features), dtype=np.float32)
     masque = np.zeros(config.N_SAISONS_AVANT, dtype=np.float32)
@@ -186,6 +187,10 @@ def construire_sequence_transfert(transfert, index):
         # Remplir le vecteur de features
         vecteur = []
         for stat in config.FEATURES_STATS:
+            v = ligne.get(stat, 0)
+            vecteur.append(0.0 if v is None or pd.isna(v) else float(v))
+        
+        for stat in config.FEATURES_C:
             v = ligne.get(stat, 0)
             vecteur.append(0.0 if v is None or pd.isna(v) else float(v))
         
@@ -234,11 +239,20 @@ def agreger_stats_multi_clubs(stats_par_team):
             for s in stats_par_team.values()
         )
     
+    for stat in config.FEATURES_C:
+        agg[stat] = sum(
+            s.get(stat, 0) or 0 
+            for s in stats_par_team.values()
+        )
+    
     ages = [s.get("age") for s in stats_par_team.values() if s.get("age")]
     agg["age"] = max(ages) if ages else 0
     
     postes = [s.get("Pos_main") for s in stats_par_team.values() if s.get("Pos_main")]
     agg["Pos_main"] = max(set(postes), key=postes.count) if postes else ""
+
+    Classements = [s.get("Classement") for s in stats_par_team.values() if s.get("Classement")]
+    agg["Classement"] = max(set(Classements), key=Classements.count) if Classements else ""
     
     return agg
 
@@ -282,6 +296,8 @@ if __name__ == "__main__":
     X_seq, masques = construire_toutes_sequences(df_t,index)
     print("X_seq :",X_seq)
     print("masques :",masques)
+    print(X_seq.shape)
+    print(masques.shape)
 
 
     # Certains joueurs on [0,0,0] comme masque. comptons-les
