@@ -17,3 +17,9 @@ POSTES = ["GK", "DF", "MF", "FW"]
 W_TEMPS = 0.55
 W_IMPACT = 0.15
 W_REGULARITE = 0.3
+
+# Paramètres modèle
+HIDDEN_SIZE = 64
+NUM_LAYER = 1
+DROPOUT = 0.3
+CONTEXT_EMBED_DIM = 16
