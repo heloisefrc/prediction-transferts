@@ -138,7 +138,7 @@ def construire_index_joueur(df_s):
         stats = {
             "team": team,
             "MP": r["MP"], "Min": r["Min"], "Starts": r["Starts"],
-            "Subs": r["Subs"],"unSubs": r["unSub"], "Gls": r["Gls"], "Ast": r["Ast"],
+            "Subs": r["Subs"],"unSub": r["unSub"], "Gls": r["Gls"], "Ast": r["Ast"],
             "G-PK": r["G-PK"], "PK": r["PK"], "PKatt": r["PKatt"],
             "age": r["age"], "Pos_main": r["Pos_main"],
         }
