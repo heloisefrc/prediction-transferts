@@ -12,10 +12,12 @@ from feature_engineering import (
     calculer_score_cible,
     construire_index_joueur,
     construire_toutes_sequences,
-    construire_contexte
+    construire_contexte,
+    split_temporel
 )
 
 from model import TransferLSTM
+from dataset import TransferDataset
 from train import entrainer, evaluer, tracer_historique
 from torch.utils.data import DataLoader
 
@@ -41,8 +43,7 @@ def main():
     print(f"  X_seq : {X_seq.shape}  (transferts, saisons, features)")
     print(f"  y     : {y.shape}     min={y.min():.3f}  max={y.max():.3f}  mean={y.mean():.3f}")
 
-    '''
-    #ON A PAS FAIT TOUT CA
+
 
     # ----- 3. SPLIT TEMPOREL -----
     print("ÉTAPE 3 — Split temporel")
@@ -58,6 +59,7 @@ def main():
             "ou la couverture du dataset."
         )
 
+    '''
     # ----- 4. STANDARDISATION -----
     print("\n" + "=" * 60)
     print("ÉTAPE 4 — Standardisation (fit sur train uniquement)")
@@ -69,19 +71,19 @@ def main():
     X_ctx_tr, X_ctx_va, X_ctx_te = standardiser_contexte(
         X_ctx_tr.copy(), X_ctx_va.copy(), X_ctx_te.copy()
     )
-    print("  Standardisation OK")
+    print("  Standardisation OK")'''
 
     # ----- 5. DATASETS PYTORCH -----
     train_ds = TransferDataset(X_seq_tr, X_ctx_tr, y_tr)
     val_ds = TransferDataset(X_seq_va, X_ctx_va, y_va)
     test_ds = TransferDataset(X_seq_te, X_ctx_te, y_te)
-    '''
+
 
     # ----- 6. MODÈLE -----
     print("ÉTAPE 5 — Construction du modèle")
     model = TransferLSTM(
-        n_features_seq=X_seq.shape[2],
-        n_features_ctx=X_ctx.shape[1],
+        n_features_seq=X_seq_tr.shape[2],
+        n_features_ctx=X_ctx_tr.shape[1],
     ).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"  Architecture : {model}")
@@ -108,6 +110,7 @@ def main():
     print(f"  Test RMSE : {test_rmse:.4f}")
     print(f"  Test R²   : {test_r2:.3f}")
 
+    '''
     # Baseline naïve (prédire la moyenne du train) pour comparaison
     y_naif = np.full_like(y_true, fill_value=y_tr.mean())
     mae_naif = np.mean(np.abs(y_true - y_naif))
@@ -115,6 +118,7 @@ def main():
     if mae_naif > 0:
         gain = (mae_naif - test_mae) / mae_naif * 100
         print(f"  Gain du LSTM vs baseline : {gain:+.1f}%")
+    '''
 
     # ----- 9. EXPORT DES PRÉDICTIONS -----
     saisons_test = df_transferts.iloc[
