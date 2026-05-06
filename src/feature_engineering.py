@@ -67,12 +67,12 @@ def score_saison(ligne, medianes):
     
     return float(score)
 
-def calculer_score_cible(df_transferts, df_stats, medianes):
+def calculer_score_cible(df_t, df_stats, medianes):
     index = construire_index_joueur(df_stats)
     
     scores = []
     
-    for _, t in df_transferts.iterrows():
+    for _, t in df_t.iterrows():
         joueur = t["player"]
         saison = t["season"]
         nouveau_club = t["to"]
@@ -106,7 +106,7 @@ def calculer_score_cible(df_transferts, df_stats, medianes):
             # Disparu des big 5
             scores.append(0.10)
     
-    return torch.tensor(scores, dtype=torch.float32)
+    return np.array(scores, dtype=torch.float32)
 
 #construction features
 
@@ -273,14 +273,16 @@ def construire_toutes_sequences(df_t,index):
     masques = masques[mask_valides]
     df_t_clean = df_t.reset_index(drop=True)[mask_valides].reset_index(drop=True)
     
-    return X_seq, masques
+    return X_seq, masques, df_t_clean
 
 def construire_contexte(df_t):
     ctx = []
     for _, r in df_t.iterrows():
-        sequence = [r["transfer_fee"],r["market_val"]] #ensuite, je pourrais rajouter classement actuel club arrivée et club départ (et la ligue) pour plus de contexte
+        sequence = [
+            np.log1p(r["transfer_fee"]),
+            np.log1p(r["market_val"])] #ensuite, je pourrais rajouter classement actuel club arrivée et club départ (et la ligue) pour plus de contexte
         ctx.append(sequence)
-    return torch.tensor(ctx, dtype=torch.float32)
+    return torch.tensor(ctx, dtype=torch.float32).numpy()
 
 def split_temporel(df_t, X_seq, X_ctx, y, masques):
     """
@@ -306,6 +308,35 @@ def split_temporel(df_t, X_seq, X_ctx, y, masques):
         "val":   (X_seq[mask_val],   X_ctx[mask_val],   y[mask_val],   masques[mask_val]),
         "test":  (X_seq[mask_test],  X_ctx[mask_test],  y[mask_test],  masques[mask_test]),
     }
+
+def standardiser(X_train, X_val, X_test, n_features_a_norm):
+    """
+    Standardise les n_features_a_norm premières colonnes de chaque tableau.
+    Le fit (calcul de la moyenne/écart-type) se fait sur le train UNIQUEMENT,
+    puis la même transformation est appliquée à val et test.
+    
+    Fonctionne pour :
+    - Tableaux 3D (séquences) : forme (n, N_SAISONS, n_features)
+    - Tableaux 2D (contexte)  : forme (n, n_features)
+    
+    Les colonnes au-delà de n_features_a_norm (one-hot, masque...) sont 
+    laissées intactes.
+    """
+    # Pour les séquences 3D, on aplatit pour calculer les stats globales
+    if X_train.ndim == 3:
+        X_flat = X_train[..., :n_features_a_norm].reshape(-1, n_features_a_norm)
+    else:  # 2D
+        X_flat = X_train[:, :n_features_a_norm]
+    
+    # Calculer moyenne et écart-type sur le train
+    moyenne = X_flat.mean(axis=0)
+    ecart_type = X_flat.std(axis=0) + 1e-8  # éviter division par 0
+    
+    # Appliquer la même transformation aux trois jeux
+    for X in (X_train, X_val, X_test):
+        X[..., :n_features_a_norm] = (X[..., :n_features_a_norm] - moyenne) / ecart_type
+    
+    return X_train, X_val, X_test
 
 if __name__ == "__main__":
     import sys

@@ -13,7 +13,8 @@ from feature_engineering import (
     construire_index_joueur,
     construire_toutes_sequences,
     construire_contexte,
-    split_temporel
+    split_temporel,
+    standardiser
 )
 
 from model import TransferLSTM
@@ -35,7 +36,7 @@ def main():
     print("ÉTAPE 2 — Construction des features et de la cible")
     index = construire_index_joueur(df_s)
     medianes = calculer_medianes_par_poste(df_s)
-    X_seq, masques = construire_toutes_sequences(df_t,index)
+    X_seq, masques, df_t = construire_toutes_sequences(df_t,index)
     X_ctx = construire_contexte(df_t)
     y = calculer_score_cible(df_t, df_s, medianes)
 
@@ -47,7 +48,7 @@ def main():
 
     # ----- 3. SPLIT TEMPOREL -----
     print("ÉTAPE 3 — Split temporel")
-    splits = split_temporel(df_transferts, X_seq, X_ctx, y)
+    splits = split_temporel(df_t, X_seq, X_ctx, y)
 
     X_seq_tr, X_ctx_tr, y_tr = splits["train"]
     X_seq_va, X_ctx_va, y_va = splits["val"]
@@ -59,19 +60,27 @@ def main():
             "ou la couverture du dataset."
         )
 
-    '''
+    
     # ----- 4. STANDARDISATION -----
-    print("\n" + "=" * 60)
     print("ÉTAPE 4 — Standardisation (fit sur train uniquement)")
-    print("=" * 60)
-    n_stats_plus_age = len(config.FEATURES_STATS) + 1  # stats + âge
-    X_seq_tr, X_seq_va, X_seq_te, _, _ = standardiser_sequences(
-        X_seq_tr.copy(), X_seq_va.copy(), X_seq_te.copy(), n_stats_plus_age
+
+    # Pour les SÉQUENCES, on standardise les FEATURES_STATS + FEATURES_C + age
+    # Tout sauf les one-hot postes et le masque
+    n_features_seq_a_norm = len(config.FEATURES_STATS) + len(config.FEATURES_C) + 1
+
+    X_seq_tr, X_seq_va, X_seq_te = standardiser(
+       X_seq_tr.copy(), X_seq_va.copy(), X_seq_te.copy(), n_features_seq_a_norm
     )
-    X_ctx_tr, X_ctx_va, X_ctx_te = standardiser_contexte(
-        X_ctx_tr.copy(), X_ctx_va.copy(), X_ctx_te.copy()
+
+    # Pour le CONTEXTE, on standardise transfer_fee et market_val (les 2 premières)
+    # La 3e (transfert_hiver) est binaire, on ne la standardise pas
+    n_features_ctx_a_norm = 2
+
+    X_ctx_tr, X_ctx_va, X_ctx_te = standardiser(
+        X_ctx_tr.copy(), X_ctx_va.copy(), X_ctx_te.copy(), n_features_ctx_a_norm
     )
-    print("  Standardisation OK")'''
+
+    print("  Standardisation OK")
 
     # ----- 5. DATASETS PYTORCH -----
     train_ds = TransferDataset(X_seq_tr, X_ctx_tr, y_tr)
@@ -121,9 +130,9 @@ def main():
     '''
 
     # ----- 9. EXPORT DES PRÉDICTIONS -----
-    saisons_test = df_transferts.iloc[
-        (df_transferts["Saison"] > config.SAISON_VAL_MAX)
-        & (df_transferts["Saison"] <= config.SAISON_TEST_MAX)
+    saisons_test = df_t.iloc[
+        (df_t["Saison"] > config.SAISON_VAL_MAX)
+        & (df_t["Saison"] <= config.SAISON_TEST_MAX)
     ].copy() if False else df_t[
         (df_t["Saison"] > config.SAISON_VAL_MAX)
         & (df_t["Saison"] <= config.SAISON_TEST_MAX)

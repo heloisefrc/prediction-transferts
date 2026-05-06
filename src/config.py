@@ -20,7 +20,7 @@ W_REGULARITE = 0.3
 
 # Paramètres modèle
 HIDDEN_SIZE = 64
-NUM_LAYER = 1
+NUM_LAYERS = 1
 DROPOUT = 0.3
 CONTEXT_EMBED_DIM = 16
 
@@ -30,4 +30,19 @@ N_EPOCHS = 60
 LEARNING_RATE = 1e-3
 WEIGHT_DECAY = 1e-5
 EARLY_STOPPING_PATIENCE = 10
-SEED = 42
+
+#--- BORNES TRAIN/VAL/TEST ---
+SAISON_TRAIN_MAX = 2019
+SAISON_VAL_MIN = 2020
+SAISON_VAL_MAX = 2021
+SAISON_TEST_MIN = 2022
+SAISON_TEST_MAX = 2023
+
+
+
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent
+MODEL_DIR = BASE_DIR / "models"
+OUTPUT_DIR = BASE_DIR / "outputs"
+MODEL_DIR.mkdir(exist_ok=True)
+OUTPUT_DIR.mkdir(exist_ok=True)
