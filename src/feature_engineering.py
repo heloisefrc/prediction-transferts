@@ -282,6 +282,31 @@ def construire_contexte(df_t):
         ctx.append(sequence)
     return torch.tensor(ctx, dtype=torch.float32)
 
+def split_temporel(df_t, X_seq, X_ctx, y, masques):
+    """
+    Sépare les données en train/val/test selon la saison du transfert.
+    Pas de shuffle — l'ordre temporel est crucial pour éviter les fuites.
+    
+    Retourne un dict avec les 3 sous-ensembles, chacun étant
+    un tuple (X_seq, X_ctx, y, masques).
+    """
+    saisons = df_t["season"].values
+    
+    mask_train = saisons <= 2019
+    mask_val   = (saisons >= 2020) & (saisons <= 2021)
+    mask_test  = (saisons >= 2022) & (saisons <= 2023)
+    
+    print(f"Split temporel :")
+    print(f"  Train [≤2019] : {mask_train.sum()}")
+    print(f"  Val   [2020-2021] : {mask_val.sum()}")
+    print(f"  Test  [2022-2023] : {mask_test.sum()}")
+    
+    return {
+        "train": (X_seq[mask_train], X_ctx[mask_train], y[mask_train], masques[mask_train]),
+        "val":   (X_seq[mask_val],   X_ctx[mask_val],   y[mask_val],   masques[mask_val]),
+        "test":  (X_seq[mask_test],  X_ctx[mask_test],  y[mask_test],  masques[mask_test]),
+    }
+
 if __name__ == "__main__":
     import sys
     sys.path.insert(0, ".")
