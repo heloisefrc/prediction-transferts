@@ -48,7 +48,7 @@ def main():
 
     # ----- 3. SPLIT TEMPOREL -----
     print("ÉTAPE 3 — Split temporel")
-    splits = split_temporel(df_t, X_seq, X_ctx, y)
+    splits = split_temporel(df_t, X_seq, X_ctx, y,masques)
 
     X_seq_tr, X_ctx_tr, y_tr = splits["train"]
     X_seq_va, X_ctx_va, y_va = splits["val"]
@@ -131,18 +131,18 @@ def main():
 
     # ----- 9. EXPORT DES PRÉDICTIONS -----
     saisons_test = df_t.iloc[
-        (df_t["Saison"] > config.SAISON_VAL_MAX)
-        & (df_t["Saison"] <= config.SAISON_TEST_MAX)
+        (df_t["season"] > config.SAISON_VAL_MAX)
+        & (df_t["season"] <= config.SAISON_TEST_MAX)
     ].copy() if False else df_t[
-        (df_t["Saison"] > config.SAISON_VAL_MAX)
-        & (df_t["Saison"] <= config.SAISON_TEST_MAX)
+        (df_t["season"] > config.SAISON_VAL_MAX)
+        & (df_t["season"] <= config.SAISON_TEST_MAX)
     ].copy()
 
     df_pred = pd.DataFrame({
-        "player_name": saisons_test["player_name"].values,
-        "saison": saisons_test["Saison"].values,
-        "from_club": saisons_test["from_club"].values,
-        "to_club": saisons_test["to_club"].values,
+        "player": saisons_test["player"].values,
+        "season": saisons_test["season"].values,
+        "from": saisons_test["from"].values,
+        "to": saisons_test["to"].values,
         "score_reel": y_true,
         "score_predit": y_pred,
         "ecart": y_pred - y_true,

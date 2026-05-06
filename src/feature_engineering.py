@@ -106,7 +106,7 @@ def calculer_score_cible(df_t, df_stats, medianes):
             # Disparu des big 5
             scores.append(0.10)
     
-    return np.array(scores, dtype=torch.float32)
+    return np.array(scores, dtype=np.float32)
 
 #construction features
 
@@ -282,7 +282,7 @@ def construire_contexte(df_t):
             np.log1p(r["transfer_fee"]),
             np.log1p(r["market_val"])] #ensuite, je pourrais rajouter classement actuel club arrivée et club départ (et la ligue) pour plus de contexte
         ctx.append(sequence)
-    return torch.tensor(ctx, dtype=torch.float32).numpy()
+    return np.array(ctx, dtype=np.float32)
 
 def split_temporel(df_t, X_seq, X_ctx, y, masques):
     """
@@ -304,9 +304,9 @@ def split_temporel(df_t, X_seq, X_ctx, y, masques):
     print(f"  Test  [2022-2023] : {mask_test.sum()}")
     
     return {
-        "train": (X_seq[mask_train], X_ctx[mask_train], y[mask_train], masques[mask_train]),
-        "val":   (X_seq[mask_val],   X_ctx[mask_val],   y[mask_val],   masques[mask_val]),
-        "test":  (X_seq[mask_test],  X_ctx[mask_test],  y[mask_test],  masques[mask_test]),
+        "train": (X_seq[mask_train], X_ctx[mask_train], y[mask_train]),
+        "val":   (X_seq[mask_val],   X_ctx[mask_val],   y[mask_val]),
+        "test":  (X_seq[mask_test],  X_ctx[mask_test],  y[mask_test]),
     }
 
 def standardiser(X_train, X_val, X_test, n_features_a_norm):
