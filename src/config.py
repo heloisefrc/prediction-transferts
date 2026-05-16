@@ -14,9 +14,12 @@ FEATURES_C = ["Classement","Liga", "Premier League", "Ligue 1", "Bundesliga", "S
 POSTES = ["GK", "DF", "MF", "FW"]
 
 # --- Score cible ---
-W_TEMPS = 0.55
+'''W_TEMPS = 0.55
 W_IMPACT = 0.15
-W_REGULARITE = 0.3
+W_REGULARITE = 0.3'''
+
+POIDS_PAR_POSTE = { "GK": {"w_temps": 0.75, "w_impact": 0.00, "w_regularite": 0.25}, "DF": {"w_temps": 0.55, "w_impact": 0.05, "w_regularite": 0.40}, "MF": {"w_temps": 0.45, "w_impact": 0.20, "w_regularite": 0.35}, "FW": {"w_temps": 0.35, "w_impact": 0.40, "w_regularite": 0.25}, } # Poids par défaut si poste inconnu 
+POIDS_DEFAUT = {"w_temps": 0.55, "w_impact": 0.15, "w_regularite": 0.30}
 
 # Paramètres modèle
 HIDDEN_SIZE = 64

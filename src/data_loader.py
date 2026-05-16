@@ -23,9 +23,6 @@ def charger_transferts():
     #repérer transferts trève hivernale
     # Filtrer les transferts d'hiver (janvier-février)
     mois = df["date"].dt.month
-    '''df_summer = df[~mois.isin([1, 2])]
-    df_winter = df[mois.isin([1, 2])]
-    print(f"[transferts] {len(df_summer)} après filtre transferts d'été uniquement")'''
     df["transfert_hiver"] = mois.isin([1, 2]).astype(int)
 
     # gestion valeurs manquantes

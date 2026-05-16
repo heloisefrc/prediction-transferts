@@ -25,47 +25,39 @@ def calculer_medianes_par_poste(df_stats):
     medianes = df.groupby("Pos_main")["ga_per_90"].median().to_dict()
     return medianes
 
+
 def score_saison(ligne, medianes):
-    """
-    Calcule le score de performance d'une saison-joueur.
-    
-    ligne : dict ou Series avec MP, Min, Starts, G+A, 90s, Pos_main
-    medianes : dict des médianes (G+A)/90 par poste
-    
-    Retourne un score dans [0, 1].
-    """
     mp = ligne["MP"]
     minutes = ligne["Min"]
-    
-    # Cas dégénéré : pas assez joué pour évaluer
+
     if not mp or not minutes or pd.isna(mp) or pd.isna(minutes):
         return 0.0
-    
-    # 1. Temps de jeu : minutes par match, max théorique = 90
+
+    poste = ligne.get("Pos_main", "")
+    poids = config.POIDS_PAR_POSTE.get(poste, config.POIDS_DEFAUT)
+
+    # 1. Temps de jeu
     temps_jeu = min(minutes / mp / 90.0, 1.0)
-    
+
     # 2. Impact offensif normalisé par poste
-    nineties = ligne["Min"]/90
-    if nineties and nineties > 0:
-        ga_per_90 = (ligne["Gls"]+ligne["Ast"]) / nineties
+    nineties = minutes / 90
+    if nineties > 0:
+        ga_per_90 = (ligne["Gls"] + ligne["Ast"]) / nineties
     else:
         ga_per_90 = 0.0
-    
-    poste = ligne["Pos_main"]
-    mediane_poste = medianes.get(poste, 0.1)
-    mediane_poste = max(mediane_poste, 0.05)  # éviter division par 0
-    
+
+    mediane_poste = max(medianes.get(poste, 0.1), 0.05)
     impact = min(ga_per_90 / (2 * mediane_poste), 1.0)
-    
-    # 3. Régularité : ratio de titularisations
+
+    # 3. Régularité
     regularite = min(ligne["Starts"] / mp, 1.0)
-    
-    # Combinaison pondérée
-    score = (config.W_TEMPS * temps_jeu 
-           + config.W_IMPACT * impact 
-           + config.W_REGULARITE * regularite)
-    
+
+    score = (poids["w_temps"] * temps_jeu
+           + poids["w_impact"] * impact
+           + poids["w_regularite"] * regularite)
+
     return float(score)
+
 
 def calculer_score_cible(df_t, df_stats, medianes):
     index = construire_index_joueur(df_stats)
@@ -80,11 +72,10 @@ def calculer_score_cible(df_t, df_stats, medianes):
         # Toutes les saisons connues du joueur
         saisons_joueur = index.get(joueur, {})
         
-        # Stats S+1 et S+2 (selon contexte)
-        stats_s1_par_team = saisons_joueur.get(saison + 1, {})
-        stats_s2_par_team = saisons_joueur.get(saison + 2, {})
+        # Stats S et S+1 !! (pas S+1 et S+2)
+        stats_s1_par_team = saisons_joueur.get(saison, {})
+        stats_s2_par_team = saisons_joueur.get(saison + 1, {})
         
-        # Le joueur est-il dans le nouveau club en S+1 ?
         if nouveau_club in stats_s1_par_team:
             score_s1 = score_saison(stats_s1_par_team[nouveau_club], medianes)
             
@@ -92,7 +83,6 @@ def calculer_score_cible(df_t, df_stats, medianes):
                 score_s2 = score_saison(stats_s2_par_team[nouveau_club], medianes)
                 scores.append(0.6 * score_s1 + 0.4 * score_s2)
             elif stats_s2_par_team:
-                # Joueur a changé de club entre S+1 et S+2
                 scores.append(0.85 * score_s1)
             else:
                 scores.append(0.7 * score_s1)
@@ -162,9 +152,7 @@ def construire_sequence_transfert(transfert, index):
     saison_t = transfert["season"]
     saisons_joueur = index.get(joueur, {})
     
-    # Pour chaque saison d'historique (k = 0, 1, ..., N-1)
-    # k=0 -> saison la plus ancienne, k=N-1 -> juste avant le transfert
-    #attention : fonctionne pour les transferts d'été ET hiver (on prend pas la saison du transfert)
+    #attention : fonctionne pour les transferts d'été ET hiver
     for k in range(config.N_SAISONS_AVANT):
         saison_k = saison_t - config.N_SAISONS_AVANT + k
         stats_par_team = saisons_joueur.get(saison_k, {})
@@ -208,7 +196,7 @@ def agreger_stats_multi_clubs(stats_par_team):
     
     Si pas de ligne 'X Teams' (cas mono-club), on retourne la seule ligne dispo.
     """
-    # Chercher s'il existe une ligne 'X Teams' (priorité)
+    # Chercher s'il existe une ligne 'X Teams'
     lignes_agregees = {
         team: stats for team, stats in stats_par_team.items()
         if "Teams" in team
@@ -222,8 +210,7 @@ def agreger_stats_multi_clubs(stats_par_team):
     if len(stats_par_team) == 1:
         return list(stats_par_team.values())[0]
     
-    # Cas tordu : plusieurs lignes par club mais pas de 'X Teams'
-    # (improbable mais possible) → on agrège manuellement
+    # Si plusieurs lignes par club mais pas de 'X Teams' → on agrège
     agg = {}
     for stat in config.FEATURES_STATS:
         agg[stat] = sum(
@@ -268,6 +255,7 @@ def construire_toutes_sequences(df_t,index):
     masques = np.stack(masques)  # forme (n, N_SAISONS_AVANT)
 
     #on supprime les transferts sans historique (il y en a 834/5022 !!, c'est énorme et ça diminue bien nos données)
+    #-> finalement y'en a moins en prenant la bonne saison !
     mask_valides = masques.sum(axis=1) > 0
     X_seq = X_seq[mask_valides]
     masques = masques[mask_valides]
@@ -440,6 +428,20 @@ if __name__ == "__main__":
     print(f"\n  Exemple — séquence du transfert 0 ({df_t.iloc[0]['player']}) :")
     print(f"    Masque : {masques[0]}")
     print(f"    Première saison : {X_seq[0, 0]}")
-    print(f"    Dernière saison : {X_seq[0, -1]}")'''
+    print(f"    Dernière saison : {X_seq[0, -1]}")
+
+    print("\n=== DIAGNOSTIC SADIO MANÉ ===")
+    mane_transfert = df_t[df_t["player"].str.contains("Mané", case=False, na=False)]
+    print("Transferts de Mané dans la base :")
+    print(mane_transfert[["player", "season", "from", "to"]].to_string())
+
+    print("\nStats de Mané dans l'index :")
+    saisons_mane = index.get("Sadio Mané", {})
+    for s in sorted(saisons_mane.keys()):
+        teams = list(saisons_mane[s].keys())
+        print(f"  Saison {s} : équipes = {teams}")
+        for team, stats in saisons_mane[s].items():
+            print(f"    {team:25s} | MP={stats['MP']} | Min={stats['Min']} | "
+                f"Gls={stats['Gls']} | Ast={stats['Ast']}")'''
 
         
